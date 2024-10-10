@@ -2,6 +2,9 @@ import pandas as pd
 import numpy as np
 import re
 from datetime import datetime, timedelta
+from io import StringIO
+
+
 def parse_line_ghcnd(line):
     num_chars_id = 11
     num_chars_year = 4
@@ -29,6 +32,7 @@ def parse_line_ghcnd(line):
         block = block[num_chars_val+num_chars_bs:]
         values.append(val)
     return id_val, year, month, measure, values
+
 def populate_dly_ghcnd(filename, station_name, min_year, data_dict):
     try:
         with open(filename) as file:
@@ -48,3 +52,33 @@ def populate_dly_ghcnd(filename, station_name, min_year, data_dict):
     except Exception as e:
         print(e)
 
+def hourcoord_to_float(s):
+    stuff = s.split(":")
+    h = float(stuff[0])
+    r = abs(h) + float(stuff[1])/60
+    if(h<0):
+        return -r
+    else:
+        return r
+    
+def convert_date(s):
+    year = int(s[:4])
+    month = int(s[4:6])
+    day = int(s[6:])
+    return datetime.datetime(year=year, month=month, day=day)
+
+def eca_read_station_like_file(filename):
+    f = open(filename, 'r')
+    lines = f.readlines()
+    start_idx = 0
+    for idx,l in enumerate(lines):
+        if(l.startswith("STAID")):
+            start_idx = idx
+    lines = ''.join(lines[start_idx:])
+    df = pd.read_csv(StringIO(lines))
+    df.columns = [ c.strip()  for c in df.columns]
+    if('LAT' in df.columns):
+        df['LAT'] = [ hourcoord_to_float(el) for el in df['LAT']]
+    if('LON' in df.columns):
+        df['LON'] = [ hourcoord_to_float(el) for el in df['LON']]
+    return df
